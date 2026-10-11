@@ -7,13 +7,15 @@ import {
   fontSizeOptions,
 } from '@/constants/articleProps.ts';
 import { clsx } from 'clsx';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { ArrowButton } from 'src/ui/arrow-button';
 import { Button } from 'src/ui/button';
 import { RadioGroup } from 'src/ui/radio-group';
 import { Select } from 'src/ui/select';
 import { Separator } from 'src/ui/separator';
 import { Text } from 'src/ui/text';
+
+import { useClose } from '@hooks/useClose';
 
 import type { ArticleStateType, OptionType } from '@/constants/articleProps.ts';
 import type { FormEvent } from 'react';
@@ -29,27 +31,21 @@ export const ArticleParamsForm = ({
   articleState,
   setArticleState,
 }: ArticleParamsFormProps): React.JSX.Element => {
-  const [isOpen, setIsOpen] = useState(false);
+  // Состояние открытия сайдбара с настройками статьи
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   // Состояние формы — черновик, на страницу не влияет до «Применить»
   const [formState, setFormState] = useState<ArticleStateType>(articleState);
+  // Ключ для принудительного пересоздания RadioGroup после «Сбросить»,
+  // иначе повторный выбор того же размера шрифта не срабатывает
+  const [radioGroupKey, setRadioGroupKey] = useState(0);
   const rootRef = useRef<HTMLDivElement>(null);
 
-  // Закрытие панели по клику вне неё
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handleClickOutside = (event: MouseEvent): void => {
-      const target = event.target;
-      if (target instanceof Node && !rootRef.current?.contains(target)) {
-        setIsOpen(false);
-      }
-    };
-
-    window.addEventListener('mousedown', handleClickOutside);
-    return (): void => {
-      window.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isOpen]);
+  // Закрытие сайдбара по клику вне его и по нажатию Esc
+  useClose({
+    containerRef: rootRef,
+    isOpen: isSidebarOpen,
+    setIsOpen: setIsSidebarOpen,
+  });
 
   const handleChange =
     (field: keyof ArticleStateType) =>
@@ -66,14 +62,18 @@ export const ArticleParamsForm = ({
     event.preventDefault();
     setFormState(defaultArticleState);
     setArticleState(defaultArticleState);
+    setRadioGroupKey((prev) => prev + 1);
   };
 
   return (
     <div ref={rootRef}>
-      <ArrowButton isOpen={isOpen} onClick={() => setIsOpen((prev) => !prev)} />
+      <ArrowButton
+        isOpen={isSidebarOpen}
+        onClick={() => setIsSidebarOpen((prev) => !prev)}
+      />
       <aside
         className={clsx(styles.container, {
-          [styles.container_open]: isOpen,
+          [styles.container_open]: isSidebarOpen,
         })}
       >
         <form className={styles.form} onSubmit={handleSubmit} onReset={handleReset}>
@@ -89,6 +89,7 @@ export const ArticleParamsForm = ({
           />
 
           <RadioGroup
+            key={radioGroupKey}
             title="Размер шрифта"
             name="fontSize"
             selected={formState.fontSizeOption}
